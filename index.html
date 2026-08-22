@@ -675,11 +675,19 @@ $("cfSave").addEventListener("click", async () => {
   const { error } = await sb.from("despesas").update(patch).eq("id", editing.id);
   if (error){ toastMsg("Erro a guardar: " + error.message); return; }
   Object.assign(editing, patch);
+  const wasPending = editingMode === "pending";
+  editing = null;
+  const rest = wasPending ? pendentes() : [];
+  if (rest.length){
+    renderPending();
+    toastMsg("Confirmada ✓ — falta" + (rest.length === 1 ? " 1" : "m " + rest.length));
+    openConfirm(rest[rest.length-1], "pending");
+    return;
+  }
   closeSheets();
   if (patch.data){ view = { y: +patch.data.slice(0,4), m: +patch.data.slice(5,7)-1 }; }
   show("home");
-  toastMsg(editingMode === "pending" ? "Fatura confirmada ✓" : "Alterações guardadas ✓");
-  editing = null;
+  toastMsg(wasPending ? "Fatura confirmada ✓" : "Alterações guardadas ✓");
 });
 $("cfCancel").addEventListener("click", () => {
   if (editingMode === "pending"){ $("sheetConfirm").classList.remove("open"); openSheet("sheetPendOpts"); }
