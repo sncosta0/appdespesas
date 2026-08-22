@@ -1,42 +1,12 @@
--- AppDespesas — schema inicial
+-- Migração 002 — NIF do cliente (validação do NIF da empresa na fatura)
 -- Colar este ficheiro completo no SQL Editor do Supabase e carregar em "Run".
 
--- Tabela principal
-create table if not exists public.despesas (
-  id uuid primary key default gen_random_uuid(),
-  criada_em timestamptz not null default now(),
-  data date,
-  fornecedor text,
-  nif text,
-  total numeric(10,2),
-  iva numeric(10,2),
-  categoria text,
-  tipo text not null default 'reembolso' check (tipo in ('cartao','reembolso')),
-  pago_por text,
-  ficheiro text,
-  nif_cliente text,
-  confirmada boolean not null default false
-);
+alter table public.despesas add column if not exists nif_cliente text;
 
-create index if not exists despesas_data_idx on public.despesas (data desc);
+-- A assinatura da função muda (novo parâmetro), por isso a antiga é removida
+-- para não haver ambiguidade no PostgREST.
+drop function if exists public.registar_fatura(text,text,text,text,text,text,text,text,text);
 
-alter table public.despesas enable row level security;
-
--- Os dois utilizadores autenticados (tu e a tua mulher) têm acesso total.
-create policy "autenticados leem" on public.despesas
-  for select to authenticated using (true);
-create policy "autenticados inserem" on public.despesas
-  for insert to authenticated with check (true);
-create policy "autenticados atualizam" on public.despesas
-  for update to authenticated using (true) with check (true);
-create policy "autenticados apagam" on public.despesas
-  for delete to authenticated using (true);
-
--- O papel anon (a chave pública que vai no atalho) não tem acesso direto à tabela:
-revoke all on public.despesas from anon;
-
--- Única porta de entrada do atalho: função tolerante a campos vazios ou mal formatados,
--- para uma extração imperfeita nunca perder o registo.
 create or replace function public.registar_fatura(
   p_tipo text default 'reembolso',
   p_data text default '',
@@ -78,6 +48,6 @@ begin
 end
 $$;
 
-revoke execute on function public.registar_fatura from public;
+revoke execute on function public.registar_fatura(text,text,text,text,text,text,text,text,text,text) from public;
 grant execute on function public.registar_fatura(text,text,text,text,text,text,text,text,text,text)
   to anon, authenticated;
