@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Despesas">
+<meta name="theme-color" content="#1E4E9C">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-180.png">
+<title>AppDespesas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F4F5F7; --surface:#FFFFFF; --surface2:#EDEFF2; --ink:#1A2332; --muted:#5C6675;
+    --line:#DDE1E7; --accent:#1E4E9C; --accent-ink:#FFFFFF; --accent-soft:#E3EAF7;
+    --reemb:#A05E12; --reemb-soft:#F5E9D8; --ok:#1F7A4D; --danger:#B3362B;
+    --shadow:0 10px 30px rgba(26,35,50,.12); --shadow-sm:0 2px 8px rgba(26,35,50,.08);
+    --backdrop:rgba(20,26,38,.45);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#12151B; --surface:#1B2029; --surface2:#242B37; --ink:#E8EBF0; --muted:#9AA4B2;
+      --line:#303845; --accent:#7FA6E8; --accent-ink:#0E1B33; --accent-soft:#22314D;
+      --reemb:#E0A45C; --reemb-soft:#3A2E1C; --ok:#5BBF8F; --danger:#E07A6E;
+      --shadow:0 10px 30px rgba(0,0,0,.45); --shadow-sm:0 2px 8px rgba(0,0,0,.35);
+      --backdrop:rgba(4,6,10,.6);
+    }
+  }
+  *{box-sizing:border-box; margin:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+    font-size:16px; line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .num{font-family:"Spline Sans Mono", ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric:tabular-nums}
+  h1,h2,h3{font-family:"Bricolage Grotesque", "Instrument Sans", sans-serif; text-wrap:balance}
+
+  .app{max-width:460px; margin:0 auto; min-height:100dvh; display:flex; flex-direction:column;
+       background:var(--bg); position:relative}
+  @media (min-width:560px){
+    body{padding:24px 0}
+    .app{min-height:calc(100dvh - 48px); border:1px solid var(--line); border-radius:28px;
+         box-shadow:var(--shadow); overflow:hidden}
+  }
+
+  /* ---------- login ---------- */
+  #view-login{flex:1; display:flex; flex-direction:column; justify-content:center; padding:32px 28px}
+  #view-login .brand-big{font-size:30px; font-weight:700; letter-spacing:-.02em; margin-bottom:4px}
+  #view-login .tag{color:var(--muted); font-size:14px; margin-bottom:28px}
+  .lerr{color:var(--danger); font-size:13.5px; min-height:20px; margin:8px 0 4px}
+  #view-login .btn{flex:none}
+
+  /* ---------- top bar ---------- */
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:12px;
+          padding:calc(14px + env(safe-area-inset-top)) 20px 8px}
+  .brand{font-size:20px; font-weight:700; letter-spacing:-.02em;
+         font-family:"Bricolage Grotesque", sans-serif}
+  .tbtns{display:flex; gap:6px}
+  .ibtn{width:36px; height:36px; border-radius:12px; border:1px solid var(--line);
+        background:var(--surface); color:var(--muted); font-size:16px; cursor:pointer; line-height:1}
+  .ibtn.spin{animation:rot 1s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+
+  main{flex:1; padding:4px 20px calc(96px + env(safe-area-inset-bottom)); overflow-y:auto}
+
+  /* ---------- pendentes ---------- */
+  .pending{background:var(--surface); border:1.5px solid var(--reemb); border-radius:18px;
+           padding:14px; margin:6px 0 16px}
+  .pending h3{font-size:14px; color:var(--reemb); margin-bottom:10px; display:flex; align-items:center; gap:8px}
+  .pending h3 .pdot{width:8px; height:8px; border-radius:50%; background:var(--reemb)}
+
+  /* ---------- month nav ---------- */
+  .monthnav{display:flex; align-items:center; justify-content:space-between; margin:8px 0 14px}
+  .monthnav h2{font-size:17px; font-weight:600; text-transform:capitalize}
+  .mbtn{width:36px; height:36px; border-radius:12px; border:1px solid var(--line);
+        background:var(--surface); color:var(--ink); font-size:16px; cursor:pointer}
+  .mbtn:disabled{opacity:.35; cursor:default}
+
+  /* ---------- hero ---------- */
+  .hero{background:var(--surface); border:1px solid var(--line); border-radius:20px;
+        padding:18px 18px 16px; box-shadow:var(--shadow-sm)}
+  .hero .label{font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+  .hero .total{font-size:38px; font-weight:600; letter-spacing:-.02em; margin-top:2px}
+  .hero .ytd{font-size:13px; color:var(--muted); margin-top:6px}
+  .split{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px}
+  .tile{border-radius:14px; padding:10px 12px}
+  .tile .t-label{font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px}
+  .tile .t-value{font-size:19px; font-weight:600; margin-top:2px}
+  .tile .t-count{font-size:12px; opacity:.75}
+  .tile.cartao{background:var(--accent-soft); color:var(--accent)}
+  .tile.reembolso{background:var(--reemb-soft); color:var(--reemb)}
+  .dot{width:8px; height:8px; border-radius:50%; background:currentColor; display:inline-block}
+
+  /* ---------- sections ---------- */
+  .section{margin-top:22px}
+  .section-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:10px}
+  .section-head h3{font-size:15px; font-weight:600}
+  .section-head button{background:none; border:none; color:var(--accent); font:inherit; font-size:13px;
+                       font-weight:600; cursor:pointer; padding:4px}
+  .catrow{display:grid; grid-template-columns:110px 1fr auto; gap:10px; align-items:center; padding:7px 0}
+  .catrow .cname{font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .catrow .bar{height:8px; border-radius:99px; background:var(--surface2); overflow:hidden}
+  .catrow .bar i{display:block; height:100%; border-radius:99px; background:var(--accent)}
+  .catrow .cval{font-size:13px; color:var(--muted)}
+
+  /* ---------- rows ---------- */
+  .rows{display:flex; flex-direction:column; gap:8px}
+  .row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--line);
+       border-radius:16px; padding:12px 14px; cursor:pointer; width:100%; text-align:left; font:inherit; color:inherit}
+  .row:hover{border-color:var(--accent)}
+  .row .stripe{width:4px; align-self:stretch; border-radius:99px; flex:none}
+  .row.cartao .stripe{background:var(--accent)}
+  .row.reembolso .stripe{background:var(--reemb)}
+  .row .mid{flex:1; min-width:0}
+  .row .forn{display:block; font-weight:600; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .row .meta{display:block; font-size:12.5px; color:var(--muted); margin-top:1px}
+  .row .amt{font-size:15.5px; font-weight:600; white-space:nowrap}
+  .chip-cat{display:inline-block; font-size:11px; font-weight:600; color:var(--muted);
+            background:var(--surface2); border-radius:99px; padding:1px 8px; margin-left:6px}
+  .chip-pend{display:inline-block; font-size:11px; font-weight:700; color:var(--reemb);
+             background:var(--reemb-soft); border-radius:99px; padding:1px 8px; margin-left:6px}
+  .empty{color:var(--muted); font-size:14px; text-align:center; padding:28px 12px;
+         border:1px dashed var(--line); border-radius:16px}
+
+  /* ---------- list ---------- */
+  .filters{display:flex; gap:8px; margin:8px 0 12px; flex-wrap:wrap}
+  .fchip{border:1px solid var(--line); background:var(--surface); color:var(--muted); font:inherit;
+         font-size:13px; font-weight:600; border-radius:99px; padding:6px 14px; cursor:pointer}
+  .fchip[aria-pressed="true"]{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+  .search{width:100%; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+          border-radius:14px; padding:10px 14px; font:inherit; margin-bottom:14px; -webkit-appearance:none}
+  .search::placeholder{color:var(--muted)}
+  .mgroup{margin-bottom:20px}
+  .mgroup-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px}
+  .mgroup-head h3{font-size:14px; font-weight:600; text-transform:capitalize}
+  .mgroup-head .msum{font-size:13px; color:var(--muted)}
+
+  /* ---------- tab bar ---------- */
+  .tabbar{position:absolute; left:0; right:0; bottom:0; display:grid; grid-template-columns:1fr auto 1fr;
+          align-items:center; background:var(--surface); border-top:1px solid var(--line);
+          padding:8px 26px calc(10px + env(safe-area-inset-bottom))}
+  .tab{background:none; border:none; color:var(--muted); font:inherit; font-size:12px; font-weight:600;
+       display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 10px}
+  .tab .ico{font-size:20px; line-height:1}
+  .tab[aria-current="true"]{color:var(--accent)}
+  .newbtn{width:58px; height:58px; border-radius:50%; border:none; background:var(--accent); color:var(--accent-ink);
+          font-size:28px; line-height:1; cursor:pointer; box-shadow:var(--shadow-sm); transform:translateY(-14px)}
+  .newbtn:active{transform:translateY(-12px)}
+
+  /* ---------- sheets ---------- */
+  .backdrop{position:fixed; inset:0; background:var(--backdrop); display:none; z-index:40}
+  .backdrop.open{display:block}
+  .sheet{position:fixed; left:50%; transform:translateX(-50%); bottom:0; width:100%; max-width:460px;
+         background:var(--surface); border-radius:22px 22px 0 0;
+         padding:20px 20px calc(24px + env(safe-area-inset-bottom));
+         z-index:50; display:none; box-shadow:var(--shadow); max-height:88dvh; overflow-y:auto}
+  .sheet.open{display:block}
+  @media (prefers-reduced-motion: no-preference){
+    .sheet.open{animation:up .22s ease-out}
+    @keyframes up{from{transform:translate(-50%,24px); opacity:.6} to{transform:translate(-50%,0); opacity:1}}
+  }
+  .sheet h3{font-size:18px; margin-bottom:4px}
+  .sheet .sub{font-size:13.5px; color:var(--muted); margin-bottom:16px}
+  .grab{width:36px; height:4px; border-radius:99px; background:var(--line); margin:0 auto 14px}
+
+  .choice{display:flex; flex-direction:column; gap:10px}
+  .choice button{display:flex; align-items:center; gap:14px; border:1px solid var(--line); border-radius:16px;
+                 background:var(--surface); padding:16px; font:inherit; color:var(--ink); cursor:pointer; text-align:left}
+  .choice .ci{width:44px; height:44px; border-radius:12px; display:grid; place-items:center; font-size:22px; flex:none}
+  .choice .cartao-i{background:var(--accent-soft)}
+  .choice .reemb-i{background:var(--reemb-soft)}
+  .choice b{display:block; font-size:15.5px}
+  .choice span{font-size:12.5px; color:var(--muted)}
+  .choice-note{font-size:12px; color:var(--muted); margin-top:12px; text-align:center}
+
+  /* form */
+  .badge{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+         border-radius:99px; padding:4px 12px}
+  .badge.cartao{background:var(--accent-soft); color:var(--accent)}
+  .badge.reembolso{background:var(--reemb-soft); color:var(--reemb)}
+  .cfhead{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:4px}
+  .field{margin-bottom:14px}
+  .field label{display:block; font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+               color:var(--muted); margin-bottom:6px}
+  .field input, .field select{display:block; width:100%; min-height:46px; border:1px solid var(--line);
+               background:var(--bg); color:var(--ink); border-radius:12px; padding:0 12px; font:inherit;
+               -webkit-appearance:none; appearance:none}
+  .field input.num{font-size:15px}
+  .field input::-webkit-date-and-time-value{text-align:left}
+  .selectwrap{position:relative}
+  .selectwrap::after{content:"▾"; position:absolute; right:14px; top:50%; transform:translateY(-50%);
+               color:var(--muted); pointer-events:none}
+  .frow{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .filecard{display:flex; gap:10px; align-items:flex-start; background:var(--surface2); border-radius:12px;
+            padding:10px 12px; margin:4px 0 16px}
+  .filecard .fico{font-size:20px; line-height:1.3}
+  .filecard .fname{font-size:12.5px; overflow-wrap:anywhere}
+  .filecard .fpath{font-size:11.5px; color:var(--muted)}
+  .actions{display:flex; gap:10px; margin-top:8px}
+  .btn{flex:1; border:none; border-radius:14px; padding:14px; font:inherit; font-size:15.5px; font-weight:600; cursor:pointer}
+  .btn.primary{background:var(--accent); color:var(--accent-ink)}
+  .btn.ghost{background:var(--surface2); color:var(--ink)}
+  .btn.danger{background:none; color:var(--danger); border:1px solid var(--line)}
+  .stack{display:flex; flex-direction:column; gap:10px}
+  .stack .btn{flex:none}
+
+  .dl{display:grid; grid-template-columns:auto 1fr; gap:6px 16px; font-size:14px; margin:12px 0 16px}
+  .dl dt{color:var(--muted)}
+  .dl dd{text-align:right; font-weight:500; overflow-wrap:anywhere}
+
+  pre.csv{background:var(--surface2); border-radius:12px; padding:12px; font-size:11px; overflow-x:auto;
+          font-family:"Spline Sans Mono", monospace; line-height:1.6; margin:12px 0}
+
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; background:var(--ink); color:var(--bg);
+         font-size:13.5px; font-weight:500; border-radius:99px; padding:10px 18px; z-index:70; display:none;
+         box-shadow:var(--shadow); max-width:88vw; text-align:center}
+  .toast.open{display:block}
+  @media (prefers-reduced-motion: no-preference){
+    .toast.open{animation:fadeup .25s ease-out}
+    @keyframes fadeup{from{opacity:0; transform:translate(-50%,8px)} to{opacity:1; transform:translate(-50%,0)}}
+  }
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ======== LOGIN ======== -->
+  <div id="view-login" hidden>
+    <div class="brand-big">AppDespesas</div>
+    <div class="tag">Faturas da empresa, arquivadas e controladas.</div>
+    <div class="field"><label for="lEmail">Email</label>
+      <input id="lEmail" type="email" autocomplete="username" inputmode="email"></div>
+    <div class="field"><label for="lPass">Password</label>
+      <input id="lPass" type="password" autocomplete="current-password"></div>
+    <div class="lerr" id="lErr"></div>
+    <button class="btn primary" id="lGo">Entrar</button>
+  </div>
+
+  <!-- ======== APP ======== -->
+  <div id="view-app" hidden style="display:flex; flex-direction:column; flex:1; min-height:0">
+    <header class="topbar">
+      <div class="brand">AppDespesas</div>
+      <div class="tbtns">
+        <button class="ibtn" id="btnRefresh" aria-label="Atualizar" title="Atualizar">↻</button>
+        <button class="ibtn" id="btnSettings" aria-label="Definições" title="Definições">⚙</button>
+      </div>
+    </header>
+
+    <main id="screen-home">
+      <div id="pendingBox" class="pending" hidden>
+        <h3><span class="pdot"></span> Por confirmar</h3>
+        <div class="rows" id="pendingRows"></div>
+      </div>
+
+      <div class="monthnav">
+        <button class="mbtn" id="mPrev" aria-label="Mês anterior">‹</button>
+        <h2 id="mLabel"></h2>
+        <button class="mbtn" id="mNext" aria-label="Mês seguinte">›</button>
+      </div>
+
+      <section class="hero">
+        <div class="label">Total do mês</div>
+        <div class="total num" id="hTotal">—</div>
+        <div class="ytd" id="hYtd"></div>
+        <div class="split">
+          <div class="tile cartao">
+            <div class="t-label"><span class="dot"></span> Cartão empresa</div>
+            <div class="t-value num" id="tCartao">—</div>
+            <div class="t-count" id="cCartao"></div>
+          </div>
+          <div class="tile reembolso">
+            <div class="t-label"><span class="dot"></span> A reembolsar</div>
+            <div class="t-value num" id="tReemb">—</div>
+            <div class="t-count" id="cReemb"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h3>Categorias do mês</h3></div>
+        <div id="catList"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <h3>Últimas faturas</h3>
+          <button id="seeAll">Ver todas</button>
+        </div>
+        <div class="rows" id="recentRows"></div>
+      </section>
+    </main>
+
+    <main id="screen-list" hidden>
+      <div class="filters">
+        <button class="fchip" data-f="todas" aria-pressed="true">Todas</button>
+        <button class="fchip" data-f="cartao" aria-pressed="false">💳 Cartão</button>
+        <button class="fchip" data-f="reembolso" aria-pressed="false">💶 Reembolso</button>
+        <button class="fchip" id="btnExport" aria-pressed="false">⬇︎ Exportar</button>
+      </div>
+      <input class="search" id="q" type="search" placeholder="Procurar fornecedor, categoria, NIF…">
+      <div id="listBody"></div>
+    </main>
+
+    <nav class="tabbar">
+      <button class="tab" data-nav="home" aria-current="true"><span class="ico">◧</span>Início</button>
+      <button class="newbtn" id="btnNew" aria-label="Nova fatura">+</button>
+      <button class="tab" data-nav="list" aria-current="false"><span class="ico">☰</span>Faturas</button>
+    </nav>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+
+<!-- nova fatura -->
+<div class="sheet" id="sheetNew" role="dialog" aria-label="Nova fatura">
+  <div class="grab"></div>
+  <h3>Nova fatura</h3>
+  <p class="sub">Escolhe o destino — abre o scanner, a extração corre no telemóvel e o PDF é arquivado no iCloud.</p>
+  <div class="choice">
+    <button data-tipo="cartao">
+      <span class="ci cartao-i">💳</span>
+      <span><b>Cartão da empresa</b><span>PDF → pasta iCloud Cartão_Empresa</span></span>
+    </button>
+    <button data-tipo="reembolso">
+      <span class="ci reemb-i">💶</span>
+      <span><b>A reembolsar</b><span>PDF → pasta iCloud A_Reembolsar</span></span>
+    </button>
+  </div>
+  <p class="choice-note">Precisa do atalho «AppDespesas» instalado neste iPhone.<br>Quando acabares o scan, volta aqui — a fatura aparece «por confirmar».</p>
+</div>
+
+<!-- confirmar / editar -->
+<div class="sheet" id="sheetConfirm" role="dialog" aria-label="Confirmar fatura">
+  <div class="grab"></div>
+  <div class="cfhead"><h3 id="cfTitle">Confirmar dados</h3><span class="badge" id="cfBadge"></span></div>
+  <p class="sub" id="cfSub">Confere com a fatura em papel e corrige o que for preciso.</p>
+  <div class="filecard" id="cfFileCard">
+    <span class="fico">📄</span>
+    <span><span class="fname num" id="cfFile"></span><br><span class="fpath" id="cfPath"></span></span>
+  </div>
+  <div class="field"><label for="fForn">Fornecedor</label><input id="fForn" autocomplete="off"></div>
+  <div class="frow">
+    <div class="field"><label for="fData">Data</label><input id="fData" type="date"></div>
+    <div class="field"><label for="fNif">NIF emitente</label><input id="fNif" class="num" inputmode="numeric" maxlength="9"></div>
+  </div>
+  <div class="frow">
+    <div class="field"><label for="fTotal">Total (€)</label><input id="fTotal" class="num" inputmode="decimal"></div>
+    <div class="field"><label for="fIva">IVA (€)</label><input id="fIva" class="num" inputmode="decimal"></div>
+  </div>
+  <div class="field"><label for="fCat">Categoria</label><div class="selectwrap"><select id="fCat"></select></div></div>
+  <div class="field"><label for="fPago">Pago por</label><input id="fPago" autocomplete="off" list="nomes"></div>
+  <datalist id="nomes"></datalist>
+  <div class="actions">
+    <button class="btn ghost" id="cfCancel">Cancelar</button>
+    <button class="btn primary" id="cfSave">Guardar</button>
+  </div>
+</div>
+
+<!-- opções ao cancelar um pendente -->
+<div class="sheet" id="sheetPendOpts" role="dialog" aria-label="Opções">
+  <div class="grab"></div>
+  <h3>O que fazer a esta fatura?</h3>
+  <p class="sub">O PDF já foi arquivado no iCloud pelo atalho.</p>
+  <div class="stack">
+    <button class="btn ghost" id="poBack">Voltar à confirmação</button>
+    <button class="btn ghost" id="poLater">Deixar por confirmar (decido depois)</button>
+    <button class="btn danger" id="poDelete">Eliminar registo — o PDF fica no iCloud</button>
+  </div>
+</div>
+
+<!-- detalhe -->
+<div class="sheet" id="sheetDetail" role="dialog" aria-label="Detalhe da fatura">
+  <div class="grab"></div>
+  <h3 id="dForn"></h3>
+  <p class="sub" id="dBadgeLine"></p>
+  <dl class="dl" id="dList"></dl>
+  <div class="filecard">
+    <span class="fico">📄</span>
+    <span><span class="fname num" id="dFile"></span><br><span class="fpath" id="dPath"></span></span>
+  </div>
+  <div class="actions">
+    <button class="btn danger" id="dDelete">Eliminar</button>
+    <button class="btn ghost" id="dEdit">Editar</button>
+    <button class="btn primary" id="dClose">Fechar</button>
+  </div>
+</div>
+
+<!-- exportar -->
+<div class="sheet" id="sheetExport" role="dialog" aria-label="Exportar">
+  <div class="grab"></div>
+  <h3>Exportar</h3>
+  <p class="sub">CSV pronto para o Excel (separador «;», decimais com vírgula). Inclui todas as faturas.</p>
+  <pre class="csv" id="csvPreview"></pre>
+  <div class="actions">
+    <button class="btn ghost" id="exCopy">Copiar</button>
+    <button class="btn primary" id="exDownload">Descarregar CSV</button>
+  </div>
+</div>
+
+<!-- definições -->
+<div class="sheet" id="sheetSettings" role="dialog" aria-label="Definições">
+  <div class="grab"></div>
+  <h3>Definições</h3>
+  <p class="sub">Sessão iniciada como <b id="sEmail"></b></p>
+  <div class="field"><label for="sNome">O teu nome (usado em «pago por»)</label>
+    <input id="sNome" autocomplete="off"></div>
+  <div class="stack">
+    <button class="btn primary" id="sSave">Guardar</button>
+    <button class="btn danger" id="sLogout">Terminar sessão</button>
+  </div>
+  <p class="choice-note" id="sVersion"></p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+const SUPABASE_URL = "https://uetyyucwwhhrxqsjwosu.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVldHl5dWN3d2hocnhxc2p3b3N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0MDE1ODMsImV4cCI6MjEwMjk3NzU4M30.fpAz0zz5ADNuQThImq3Z7y2zS1jw-Zl0FF3474auuGE";
+const SHORTCUT_NAME = "AppDespesas";
+const VERSION = "v1.0";
+
+const CATS = ["Alimentação","Restauração","Saúde","Educação","Casa","Transportes","Vestuário","Lazer","Viagens","Outros"];
+const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const eur = new Intl.NumberFormat("pt-PT", {style:"currency", currency:"EUR"});
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let all = [];                 // todas as despesas
+let view = null;              // {y, m} mês do dashboard
+let filter = "todas", query = "";
+let editing = null;           // registo aberto no formulário
+let editingMode = "pending";  // "pending" | "edit"
+let autoOpen = true;          // abrir pendente automaticamente após fetch
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => { const d = document.createElement("i"); d.textContent = s ?? ""; return d.innerHTML; };
+
+/* ---------------- helpers ---------------- */
+const tipoLabel = (t) => t === "cartao" ? "Cartão empresa" : "A reembolsar";
+const folderOf = (t) => "iCloud Drive ▸ Despesas ▸ " + (t === "cartao" ? "Cartão_Empresa" : "A_Reembolsar");
+const fmtDay = (iso) => { if (!iso) return "—"; const p = iso.split("-"); return (+p[2]) + " " + MESES[+p[1]-1].slice(0,3); };
+const num = (v) => v == null ? 0 : +v;
+const confirmadas = () => all.filter(r => r.confirmada);
+const pendentes = () => all.filter(r => !r.confirmada);
+const inMonth = (r, y, m) => r.data && +r.data.slice(0,4) === y && +r.data.slice(5,7) === m+1;
+const sum = (list) => list.reduce((a, r) => a + num(r.total), 0);
+const parseNum = (v) => { const n = parseFloat(String(v).trim().replace(",", ".")); return isNaN(n) ? null : n; };
+const myName = () => localStorage.getItem("ad-nome") || "";
+
+function toastMsg(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("open");
+  clearTimeout(toastMsg._t); toastMsg._t = setTimeout(() => t.classList.remove("open"), 3000);
+}
+
+/* ---------------- auth ---------------- */
+async function boot(){
+  const { data: { session } } = await sb.auth.getSession();
+  session ? showApp() : showLogin();
+  sb.auth.onAuthStateChange((ev) => {
+    if (ev === "SIGNED_OUT") showLogin();
+  });
+}
+function showLogin(){
+  $("view-login").hidden = false; $("view-app").hidden = true;
+}
+async function showApp(){
+  $("view-login").hidden = true; $("view-app").hidden = false;
+  const now = new Date(); view = { y: now.getFullYear(), m: now.getMonth() };
+  const { data: { user } } = await sb.auth.getUser();
+  $("sEmail").textContent = user?.email || "";
+  $("sVersion").textContent = "AppDespesas " + VERSION;
+  autoOpen = true;
+  await refresh();
+  if (!myName()) openSheet("sheetSettings");
+}
+$("lGo").addEventListener("click", doLogin);
+$("lPass").addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+async function doLogin(){
+  $("lErr").textContent = "";
+  const { error } = await sb.auth.signInWithPassword({
+    email: $("lEmail").value.trim(), password: $("lPass").value
+  });
+  if (error){ $("lErr").textContent = "Não foi possível entrar: " + error.message; return; }
+  showApp();
+}
+$("sLogout").addEventListener("click", async () => { closeSheets(); await sb.auth.signOut(); });
+$("sSave").addEventListener("click", () => {
+  const n = $("sNome").value.trim();
+  if (n) localStorage.setItem("ad-nome", n);
+  closeSheets(); toastMsg("Guardado");
+});
+$("btnSettings").addEventListener("click", () => { $("sNome").value = myName(); openSheet("sheetSettings"); });
+
+/* ---------------- dados ---------------- */
+async function refresh(){
+  $("btnRefresh").classList.add("spin");
+  const { data, error } = await sb.from("despesas").select("*")
+    .order("data", { ascending:false, nullsFirst:false })
+    .order("criada_em", { ascending:false });
+  $("btnRefresh").classList.remove("spin");
+  if (error){ toastMsg("Erro a carregar: " + error.message); return; }
+  all = data || [];
+  renderAll();
+  if (autoOpen){
+    autoOpen = false;
+    const p = pendentes();
+    if (p.length && !$("sheetConfirm").classList.contains("open")){
+      openConfirm(p[p.length-1], "pending");
+    }
+  }
+}
+$("btnRefresh").addEventListener("click", () => { autoOpen = false; refresh(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !$("view-app").hidden){
+    autoOpen = true; refresh();
+  }
+});
+
+/* ---------------- render ---------------- */
+function renderAll(){
+  if (!$("screen-home").hidden) renderHome(); else renderList();
+  renderPending();
+}
+function rowHTML(r, pend){
+  return `<button class="row ${r.tipo}" data-id="${r.id}">
+    <span class="stripe"></span><span class="mid">
+    <span class="forn">${esc(r.fornecedor || "Sem fornecedor")}</span>
+    <span class="meta">${fmtDay(r.data)} · ${esc(r.pago_por || "—")}` +
+    (pend ? `<span class="chip-pend">por confirmar</span>`
+          : `<span class="chip-cat">${esc(r.categoria || "—")}</span>`) +
+    `</span></span><span class="amt num">${r.total == null ? "—" : eur.format(num(r.total))}</span></button>`;
+}
+function renderPending(){
+  const p = pendentes();
+  $("pendingBox").hidden = !p.length;
+  $("pendingRows").innerHTML = p.map(r => rowHTML(r, true)).join("");
+}
+function renderHome(){
+  $("mLabel").textContent = MESES[view.m] + " " + view.y;
+  const now = new Date();
+  $("mNext").disabled = (view.y > now.getFullYear()) ||
+                        (view.y === now.getFullYear() && view.m >= now.getMonth());
+  const conf = confirmadas();
+  const month = conf.filter(r => inMonth(r, view.y, view.m));
+  const cart = month.filter(r => r.tipo === "cartao");
+  const reem = month.filter(r => r.tipo === "reembolso");
+  const ytd = conf.filter(r => r.data && +r.data.slice(0,4) === view.y &&
+                               +r.data.slice(5,7) <= view.m + 1);
+
+  $("hTotal").textContent = eur.format(sum(month));
+  $("hYtd").textContent = `Acumulado ${view.y}: ${eur.format(sum(ytd))} · ${ytd.length} faturas`;
+  $("tCartao").textContent = eur.format(sum(cart));
+  $("cCartao").textContent = cart.length + (cart.length === 1 ? " fatura" : " faturas");
+  $("tReemb").textContent = eur.format(sum(reem));
+  $("cReemb").textContent = reem.length + (reem.length === 1 ? " fatura" : " faturas");
+
+  const byCat = {};
+  month.forEach(r => { const c = r.categoria || "Outros"; byCat[c] = (byCat[c] || 0) + num(r.total); });
+  const cats = Object.entries(byCat).sort((a,b) => b[1]-a[1]).slice(0,5);
+  const max = cats.length ? cats[0][1] : 1;
+  $("catList").innerHTML = cats.length
+    ? cats.map(([c,v]) => `<div class="catrow"><span class="cname">${esc(c)}</span>
+        <span class="bar"><i style="width:${Math.max(6, Math.round(v/max*100))}%"></i></span>
+        <span class="cval num">${eur.format(v)}</span></div>`).join("")
+    : `<div class="empty">Sem despesas neste mês.</div>`;
+
+  const recent = month.slice(0,4);
+  $("recentRows").innerHTML = recent.length
+    ? recent.map(r => rowHTML(r, false)).join("")
+    : `<div class="empty">Sem faturas neste mês — toca em <b>+</b> para digitalizar.</div>`;
+}
+function renderList(){
+  let list = confirmadas();
+  if (filter !== "todas") list = list.filter(r => r.tipo === filter);
+  if (query){
+    const q = query.toLowerCase();
+    list = list.filter(r => `${r.fornecedor} ${r.categoria} ${r.nif} ${r.pago_por}`.toLowerCase().includes(q));
+  }
+  if (!list.length){ $("listBody").innerHTML = `<div class="empty">Nada encontrado.</div>`; return; }
+  const groups = new Map();
+  list.forEach(r => {
+    const k = r.data ? r.data.slice(0,7) : "sem-data";
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  });
+  $("listBody").innerHTML = [...groups.entries()].map(([k, g]) => {
+    const title = k === "sem-data" ? "Sem data" : MESES[+k.slice(5,7)-1] + " " + k.slice(0,4);
+    return `<div class="mgroup"><div class="mgroup-head"><h3>${title}</h3>
+      <span class="msum num">${eur.format(sum(g))}</span></div>
+      <div class="rows">${g.map(r => rowHTML(r, false)).join("")}</div></div>`;
+  }).join("");
+}
+
+/* ---------------- navegação ---------------- */
+function show(nav){
+  $("screen-home").hidden = nav !== "home";
+  $("screen-list").hidden = nav !== "list";
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-current", String(t.dataset.nav === nav)));
+  renderAll();
+}
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => show(t.dataset.nav)));
+$("seeAll").addEventListener("click", () => show("list"));
+$("mPrev").addEventListener("click", () => { view.m--; if (view.m < 0){ view.m = 11; view.y--; } renderHome(); });
+$("mNext").addEventListener("click", () => { view.m++; if (view.m > 11){ view.m = 0; view.y++; } renderHome(); });
+
+/* ---------------- sheets ---------------- */
+function openSheet(id){ $("backdrop").classList.add("open"); $(id).classList.add("open"); }
+function closeSheets(){
+  $("backdrop").classList.remove("open");
+  document.querySelectorAll(".sheet").forEach(s => s.classList.remove("open"));
+}
+$("backdrop").addEventListener("click", () => {
+  if ($("sheetConfirm").classList.contains("open")) return;
+  closeSheets();
+});
+
+/* ---------------- nova fatura ---------------- */
+$("btnNew").addEventListener("click", () => openSheet("sheetNew"));
+document.querySelectorAll("#sheetNew .choice button").forEach(b => {
+  b.addEventListener("click", () => {
+    closeSheets();
+    location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent(SHORTCUT_NAME) +
+                    "&input=text&text=" + b.dataset.tipo;
+  });
+});
+
+/* ---------------- confirmar / editar ---------------- */
+function openConfirm(r, mode){
+  editing = r; editingMode = mode;
+  $("cfTitle").textContent = mode === "pending" ? "Confirmar dados" : "Editar fatura";
+  $("cfSub").textContent = mode === "pending"
+    ? "Confere com a fatura em papel e corrige o que for preciso."
+    : "Altera o que for preciso e guarda.";
+  const b = $("cfBadge");
+  b.textContent = (r.tipo === "cartao" ? "💳 " : "💶 ") + tipoLabel(r.tipo);
+  b.className = "badge " + r.tipo;
+  $("cfFileCard").hidden = !r.ficheiro;
+  $("cfFile").textContent = r.ficheiro || "";
+  $("cfPath").textContent = (mode === "pending" ? "já arquivado em " : "") + folderOf(r.tipo);
+  $("fForn").value = r.fornecedor || "";
+  $("fData").value = r.data || "";
+  $("fNif").value = r.nif || "";
+  $("fTotal").value = r.total == null ? "" : String(r.total);
+  $("fIva").value = r.iva == null ? "" : String(r.iva);
+  $("fCat").innerHTML = CATS.map(c =>
+    `<option${(r.categoria || "Outros") === c ? " selected" : ""}>${c}</option>`).join("");
+  $("fPago").value = r.pago_por || myName();
+  $("nomes").innerHTML = [...new Set(all.map(x => x.pago_por).filter(Boolean))]
+    .map(n => `<option value="${esc(n)}">`).join("");
+  openSheet("sheetConfirm");
+}
+$("cfSave").addEventListener("click", async () => {
+  const total = parseNum($("fTotal").value);
+  if (!$("fForn").value.trim() || total == null){
+    toastMsg("Preenche pelo menos fornecedor e total."); return;
+  }
+  const patch = {
+    fornecedor: $("fForn").value.trim(),
+    data: $("fData").value || null,
+    nif: $("fNif").value.trim() || null,
+    total, iva: parseNum($("fIva").value),
+    categoria: $("fCat").value,
+    pago_por: $("fPago").value.trim() || null,
+    confirmada: true
+  };
+  const { error } = await sb.from("despesas").update(patch).eq("id", editing.id);
+  if (error){ toastMsg("Erro a guardar: " + error.message); return; }
+  Object.assign(editing, patch);
+  closeSheets();
+  if (patch.data){ view = { y: +patch.data.slice(0,4), m: +patch.data.slice(5,7)-1 }; }
+  show("home");
+  toastMsg(editingMode === "pending" ? "Fatura confirmada ✓" : "Alterações guardadas ✓");
+  editing = null;
+});
+$("cfCancel").addEventListener("click", () => {
+  if (editingMode === "pending"){ $("sheetConfirm").classList.remove("open"); openSheet("sheetPendOpts"); }
+  else { closeSheets(); editing = null; }
+});
+$("poBack").addEventListener("click", () => { $("sheetPendOpts").classList.remove("open"); openSheet("sheetConfirm"); });
+$("poLater").addEventListener("click", () => { closeSheets(); editing = null; renderAll(); });
+$("poDelete").addEventListener("click", async () => {
+  const { error } = await sb.from("despesas").delete().eq("id", editing.id);
+  if (error){ toastMsg("Erro: " + error.message); return; }
+  all = all.filter(r => r.id !== editing.id);
+  closeSheets(); editing = null; renderAll();
+  toastMsg("Registo eliminado — o PDF continua no iCloud");
+});
+
+/* ---------------- detalhe ---------------- */
+document.addEventListener("click", (e) => {
+  const row = e.target.closest(".row[data-id]");
+  if (!row) return;
+  const r = all.find(x => x.id === row.dataset.id);
+  if (!r) return;
+  if (!r.confirmada){ openConfirm(r, "pending"); return; }
+  $("dForn").textContent = r.fornecedor || "Sem fornecedor";
+  $("dBadgeLine").innerHTML = `<span class="badge ${r.tipo}">${r.tipo === "cartao" ? "💳 " : "💶 "}${tipoLabel(r.tipo)}</span>`;
+  $("dList").innerHTML =
+    `<dt>Data</dt><dd>${esc(r.data || "—")}</dd>
+     <dt>NIF emitente</dt><dd class="num">${esc(r.nif || "—")}</dd>
+     <dt>Total</dt><dd class="num">${r.total == null ? "—" : eur.format(num(r.total))}</dd>
+     <dt>IVA</dt><dd class="num">${r.iva == null ? "—" : eur.format(num(r.iva))}</dd>
+     <dt>Categoria</dt><dd>${esc(r.categoria || "—")}</dd>
+     <dt>Pago por</dt><dd>${esc(r.pago_por || "—")}</dd>`;
+  $("dFile").textContent = r.ficheiro || "—";
+  $("dPath").textContent = folderOf(r.tipo);
+  $("dEdit").dataset.id = r.id;
+  $("dDelete").dataset.id = r.id;
+  openSheet("sheetDetail");
+});
+$("dClose").addEventListener("click", closeSheets);
+$("dEdit").addEventListener("click", function(){
+  const r = all.find(x => x.id === this.dataset.id);
+  closeSheets();
+  if (r) openConfirm(r, "edit");
+});
+$("dDelete").addEventListener("click", async function(){
+  if (!confirm("Eliminar este registo? O PDF continua arquivado no iCloud.")) return;
+  const { error } = await sb.from("despesas").delete().eq("id", this.dataset.id);
+  if (error){ toastMsg("Erro: " + error.message); return; }
+  all = all.filter(r => r.id !== this.dataset.id);
+  closeSheets(); renderAll();
+  toastMsg("Registo eliminado");
+});
+
+/* ---------------- filtros e export ---------------- */
+document.querySelectorAll(".fchip[data-f]").forEach(c => {
+  c.addEventListener("click", () => {
+    filter = c.dataset.f;
+    document.querySelectorAll(".fchip[data-f]").forEach(x => x.setAttribute("aria-pressed", String(x === c)));
+    renderList();
+  });
+});
+$("q").addEventListener("input", function(){ query = this.value.trim(); renderList(); });
+
+function buildCSV(){
+  const nf = (v) => v == null ? "" : Number(v).toFixed(2).replace(".", ",");
+  const lines = ["tipo;pago_por;data;fornecedor;nif;total;iva;categoria;ficheiro;confirmada"];
+  all.slice().sort((a,b) => (a.data || "") < (b.data || "") ? -1 : 1).forEach(r => {
+    lines.push([tipoLabel(r.tipo), r.pago_por || "", r.data || "", (r.fornecedor || "").replaceAll(";", ","),
+      r.nif || "", nf(r.total), nf(r.iva), r.categoria || "", r.ficheiro || "",
+      r.confirmada ? "sim" : "não"].join(";"));
+  });
+  return lines.join("\r\n");
+}
+$("btnExport").addEventListener("click", () => {
+  const csv = buildCSV();
+  const preview = csv.split("\r\n").slice(0, 7);
+  if (all.length > 6) preview.push(`… (${all.length} faturas no total)`);
+  $("csvPreview").textContent = preview.join("\n");
+  openSheet("sheetExport");
+});
+$("exDownload").addEventListener("click", () => {
+  const blob = new Blob(["﻿" + buildCSV()], { type:"text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "despesas_" + new Date().toISOString().slice(0,10) + ".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+$("exCopy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(buildCSV()); toastMsg("Copiado ✓"); }
+  catch { toastMsg("Não foi possível copiar."); }
+});
+
+boot();
+</script>
+</body>
+</html>
