@@ -447,6 +447,11 @@ const esc = (s) => { const d = document.createElement("i"); d.textContent = s ??
 /* ---------------- helpers ---------------- */
 const tipoLabel = (t) => t === "cartao" ? "Cartão empresa" : "A reembolsar";
 const folderOf = (t) => "iCloud Drive ▸ Despesas ▸ " + (t === "cartao" ? "Cartão_Empresa" : "A_Reembolsar");
+// Registos históricos guardam o caminho relativo em `ficheiro`; os novos, só o nome.
+const pathOf = (r) => r.ficheiro && r.ficheiro.includes("/")
+  ? "iCloud Drive ▸ … ▸ " + r.ficheiro.split("/").slice(0, -1).join(" ▸ ")
+  : folderOf(r.tipo);
+const nameOf = (r) => (r.ficheiro || "").split("/").pop();
 const fmtDay = (iso) => { if (!iso) return "—"; const p = iso.split("-"); return (+p[2]) + " " + MESES[+p[1]-1].slice(0,3); };
 const num = (v) => v == null ? 0 : +v;
 const confirmadas = () => all.filter(r => r.confirmada);
@@ -647,8 +652,8 @@ function openConfirm(r, mode){
   b.textContent = (r.tipo === "cartao" ? "💳 " : "💶 ") + tipoLabel(r.tipo);
   b.className = "badge " + r.tipo;
   $("cfFileCard").hidden = !r.ficheiro;
-  $("cfFile").textContent = r.ficheiro || "";
-  $("cfPath").textContent = (mode === "pending" ? "já arquivado em " : "") + folderOf(r.tipo);
+  $("cfFile").textContent = nameOf(r);
+  $("cfPath").textContent = (mode === "pending" ? "já arquivado em " : "") + pathOf(r);
   $("fForn").value = r.fornecedor || "";
   $("fData").value = r.data || "";
   $("fNif").value = r.nif || "";
@@ -734,8 +739,8 @@ document.addEventListener("click", (e) => {
      <dt>IVA</dt><dd class="num">${r.iva == null ? "—" : eur.format(num(r.iva))}</dd>
      <dt>Categoria</dt><dd>${esc(r.categoria || "—")}</dd>
      <dt>Pago por</dt><dd>${esc(r.pago_por || "—")}</dd>`;
-  $("dFile").textContent = r.ficheiro || "—";
-  $("dPath").textContent = folderOf(r.tipo);
+  $("dFile").textContent = nameOf(r) || "—";
+  $("dPath").textContent = pathOf(r);
   $("dEdit").dataset.id = r.id;
   $("dDelete").dataset.id = r.id;
   openSheet("sheetDetail");
