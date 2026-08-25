@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Despesas">
@@ -68,7 +68,13 @@
     font-family:Manrope, "Helvetica Neue", Arial, sans-serif;
     font-size:16px; line-height:1.45;
     -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
+    /* comportamento nativo: sem seleção de texto, sem callout de toque longo,
+       sem zoom por duplo toque (o viewport já bloqueia o pinch) */
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+    touch-action:manipulation;
   }
+  input, textarea{-webkit-user-select:text; user-select:text}
   .tit{font-family:Outfit, Manrope, sans-serif}
   .num{font-variant-numeric:tabular-nums}
   button{font:inherit; color:inherit; background:none; border:none; cursor:pointer; padding:0}
@@ -843,10 +849,14 @@
   <div class="f-corpo">
     <div class="f-tit">Marcar como entregues?</div>
     <div class="f-sub" id="bulkSub"></div>
-    <div class="f-acoes" style="margin-top:16px">
-      <button class="btn suave" id="bulkCancel">Cancelar</button>
-      <button class="btn indigo" id="bulkOk"><svg width="17" height="17"><use href="#i-ok"></use></svg>Marcar</button>
+    <div class="empilha">
+      <button class="btn indigo" id="bulkPrep"><svg width="17" height="17"><use href="#i-fich"></use></svg>Marcar e preparar pasta</button>
+      <button class="btn suave" id="bulkOk"><svg width="17" height="17"><use href="#i-ok"></use></svg>Só marcar</button>
     </div>
+    <div style="font-size:12px; color:var(--muted); line-height:1.5; margin-top:12px; padding:0 2px">
+      «Preparar pasta» usa o atalho «EntregarMes»: cria a pasta do mês em
+      Empresa ▸ Entregas, com cópias dos PDFs e um faturas.xlsx com a lista.</div>
+    <div class="f-link"><button id="bulkCancel">Cancelar</button></div>
   </div>
 </div>
 
@@ -890,11 +900,12 @@
       </div>
     </div>
     <div style="font-size:12px; color:var(--muted); line-height:1.5; margin-top:12px; padding:0 2px">
-      CSV pronto para o Excel português — separador «;», decimais com vírgula.</div>
+      Excel (.xlsx) com totais e IVA como números. «Copiar» leva a lista em texto,
+      para colar noutro sítio.</div>
     <div class="f-acoes" style="margin-top:14px">
       <button class="btn suave" id="exCopy"><svg width="17" height="17"><use href="#i-copia"></use></svg>Copiar</button>
       <button class="btn indigo" style="flex-grow:1.4" id="exDownload">
-        <svg width="17" height="17"><use href="#i-exportar"></use></svg>Descarregar CSV</button>
+        <svg width="17" height="17"><use href="#i-exportar"></use></svg>Descarregar Excel</button>
     </div>
   </div>
 </div>
@@ -932,6 +943,10 @@
         <svg width="17" height="17" style="color:var(--link); flex:none"><use href="#i-fich"></use></svg>
         <span>Atalho «AbrirFatura»</span><small>abre os PDFs</small>
       </div>
+      <div class="def-info">
+        <svg width="17" height="17" style="color:var(--link); flex:none"><use href="#i-exportar"></use></svg>
+        <span>Atalho «EntregarMes»</span><small>pasta p/ contabilista</small>
+      </div>
     </div>
     <div class="f-link" style="margin-top:14px"><button class="perigo-txt" id="sLogout">Terminar sessão</button></div>
     <div style="text-align:center"><span style="font-size:11.5px; color:var(--fraco)" id="sVersion"></span></div>
@@ -949,8 +964,9 @@ const SUPABASE_URL = "https://uetyyucwwhhrxqsjwosu.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVldHl5dWN3d2hocnhxc2p3b3N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0MDE1ODMsImV4cCI6MjEwMjk3NzU4M30.fpAz0zz5ADNuQThImq3Z7y2zS1jw-Zl0FF3474auuGE";
 const SHORTCUT_NAME = "AppDespesas";
 const SHORTCUT_ABRIR = "AbrirFatura";
+const SHORTCUT_ENTREGAR = "EntregarMes";
 const NIF_EMPRESA = "518556760";
-const VERSION = "v2.0";
+const VERSION = "v2.1";
 const PAGINA = 80;
 
 const CATS = ["Alimentação","Restauração","Saúde","Educação","Casa","Transportes",
@@ -1586,7 +1602,10 @@ function renderLista(){
     const t = k === "sem-data" ? "Sem data" : cap(MESES[+k.slice(5, 7) - 1]) + " " + k.slice(0, 4);
     const btnMes = estado === "porentregar"
       ? `<button class="mes-btn" data-mes="${k}">
-          <svg width="14" height="14"><use href="#i-exportar"></use></svg>Entregar mês</button>` : "";
+          <svg width="14" height="14"><use href="#i-exportar"></use></svg>Entregar mês</button>`
+      : estado === "entregues"
+      ? `<button class="mes-btn" data-prep="${k}">
+          <svg width="14" height="14"><use href="#i-fich"></use></svg>Preparar pasta</button>` : "";
     return `<div class="grupo"><div class="grupo-topo"><h3>${t}</h3>
       <div style="display:flex; align-items:center; gap:9px">
         <span class="gsoma num">${eur.format(soma(g))}</span>${btnMes}</div></div>
@@ -1599,8 +1618,9 @@ function renderLista(){
   if (bm) bm.addEventListener("click", () => { listLimit += PAGINA; renderLista(); });
   $("listBody").querySelectorAll(".mes-btn").forEach(b => b.addEventListener("click", (ev) => {
     ev.stopPropagation();
-    const k = b.dataset.mes;
+    const k = b.dataset.mes || b.dataset.prep;
     const alvo = listaFiltrada().filter(r => (r.data ? r.data.slice(0, 7) : "sem-data") === k);
+    if (b.dataset.prep){ preparaEntrega(alvo); return; }
     pedeEntrega(alvo, k === "sem-data" ? "Sem data" : cap(MESES[+k.slice(5, 7) - 1]) + " " + k.slice(0, 4));
   }));
 }
@@ -2055,17 +2075,77 @@ function pedeEntrega(lista, comoSeChama){
 }
 $("bulkBtn").addEventListener("click", () => pedeEntrega(listaFiltrada(), "Tudo o que está filtrado"));
 $("bulkCancel").addEventListener("click", () => { bulkAlvo = []; closeSheets(); });
-$("bulkOk").addEventListener("click", async () => {
-  if (!bulkAlvo.length) return;
+async function marcaEntregues(){
+  if (!bulkAlvo.length) return null;
   const hoje = new Date().toISOString().slice(0, 10);
   const { error } = await sb.from("despesas").update({ entregue_em: hoje }).in("id", bulkAlvo);
-  if (error){ toastMsg("Erro: " + error.message); return; }
+  if (error){ toastMsg("Erro: " + error.message); return null; }
   const alvo = new Set(bulkAlvo);
-  all.forEach(r => { if (alvo.has(r.id)) r.entregue_em = hoje; });
-  const n = bulkAlvo.length;
+  const linhas = all.filter(r => alvo.has(r.id));
+  linhas.forEach(r => { r.entregue_em = hoje; });
   bulkAlvo = []; closeSheets(); renderAll();
-  toastMsg(n === 1 ? "Marcada como entregue" : `${n} faturas entregues`);
+  toastMsg(linhas.length === 1 ? "Marcada como entregue" : `${linhas.length} faturas entregues`);
+  return linhas;
+}
+$("bulkOk").addEventListener("click", marcaEntregues);
+$("bulkPrep").addEventListener("click", async () => {
+  const linhas = await marcaEntregues();
+  if (linhas) preparaEntrega(linhas);
 });
+
+/* Excel a sério (.xlsx) — SheetJS carregado só quando é preciso */
+let XLSXmod = null;
+async function carregaXLSX(){
+  if (!XLSXmod) XLSXmod = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.mjs");
+  return XLSXmod;
+}
+async function buildXLSX(lista, tipoSaida){
+  const X = await carregaXLSX();
+  const cab = ["Tipo","Pago por","Data","Fornecedor","NIF emitente","NIF empresa",
+               "Total","IVA","Categoria","Ficheiro","Confirmada","Entregue em"];
+  const linhas = lista.slice()
+    .sort((a, b) => (a.data || "") < (b.data || "") ? -1 : 1)
+    .map(r => [tipoLabel(r.tipo), r.pago_por || "", r.data || "", r.fornecedor || "",
+      r.nif || "", r.nif_cliente || "",
+      r.total == null ? null : num(r.total), r.iva == null ? null : num(r.iva),
+      r.categoria || "", r.ficheiro || "", r.confirmada ? "sim" : "não", r.entregue_em || ""]);
+  const ws = X.utils.aoa_to_sheet([cab, ...linhas]);
+  ws["!cols"] = [{wch:14},{wch:10},{wch:11},{wch:30},{wch:12},{wch:12},
+                 {wch:10},{wch:9},{wch:13},{wch:36},{wch:11},{wch:11}];
+  const wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, ws, "Faturas");
+  return X.write(wb, { type: tipoSaida, bookType: "xlsx" });
+}
+
+/* pasta para o contabilista: manifesto no clipboard → atalho EntregarMes
+   copia os PDFs (nunca os move — o «Abrir» depende dos caminhos originais)
+   e grava um faturas.xlsx em Empresa/Entregas/<pasta>/ */
+function pastaEntrega(lista){
+  const meses = new Set(lista.map(r => r.data ? r.data.slice(0, 7) : "sem-data"));
+  if (meses.size === 1 && !meses.has("sem-data")){
+    const k = [...meses][0];
+    return k + " " + cap(MESES[+k.slice(5, 7) - 1]);
+  }
+  return "Entrega " + new Date().toISOString().slice(0, 10);
+}
+async function preparaEntrega(lista){
+  let xlsx;
+  try { xlsx = await buildXLSX(lista, "base64"); }
+  catch { toastMsg("Não deu para gerar o Excel — verifica a ligação."); return; }
+  const manifesto = {
+    pasta: pastaEntrega(lista),
+    xlsx,
+    ficheiros: lista.filter(r => r.ficheiro).map(caminhoICloud)
+  };
+  try { await navigator.clipboard.writeText(JSON.stringify(manifesto)); }
+  catch { toastMsg("Não deu para passar a lista ao atalho — tenta outra vez."); return; }
+  location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent(SHORTCUT_ENTREGAR) +
+                  "&input=clipboard";
+  setTimeout(() => {
+    if (document.visibilityState === "visible")
+      toastMsg("Se nada abriu, falta instalar o atalho «" + SHORTCUT_ENTREGAR + "»");
+  }, 1200);
+}
 
 /* =============== exportar =============== */
 function buildCSV(lista){
@@ -2088,11 +2168,15 @@ $("btnExport").addEventListener("click", () => {
   $("exTotal").textContent = eur.format(soma(l));
   openSheet("sheetExport");
 });
-$("exDownload").addEventListener("click", () => {
-  const blob = new Blob(["﻿" + buildCSV(listaFiltrada())], { type:"text/csv;charset=utf-8" });
+$("exDownload").addEventListener("click", async () => {
+  let dados;
+  try { dados = await buildXLSX(listaFiltrada(), "array"); }
+  catch { toastMsg("Não deu para gerar o Excel — verifica a ligação."); return; }
+  const blob = new Blob([dados],
+    { type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "despesas_" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.download = "despesas_" + new Date().toISOString().slice(0, 10) + ".xlsx";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 });
