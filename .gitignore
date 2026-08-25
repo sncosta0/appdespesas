@@ -1,3 +1,5 @@
 # Handover de design: contém screenshots com dados reais de despesas
 # (fornecedores, valores, NIFs). O repositório é público — fica fora.
 design-handover/
+# Artboards do Claude Design: também mostram fornecedores e valores reais.
+design-canvas/

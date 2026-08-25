@@ -1,6 +1,6 @@
 // Service worker: rede primeiro (para as atualizações chegarem sempre),
 // cache só como rede de segurança quando não há ligação.
-const CACHE = "appdespesas-v1";
+const CACHE = "appdespesas-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest",
                "./icons/icon-180.png", "./icons/icon-512.png"];
 
