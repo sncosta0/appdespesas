@@ -6,33 +6,52 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Despesas">
-<meta name="theme-color" content="#1E4E9C">
+<meta name="theme-color" content="#495E57">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-180.png">
 <title>AppDespesas</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap">
 <style>
+  /* ---------------------------------------------------------------
+     Paleta: #F5F7F8 branco · #F4CE14 amarelo · #495E57 sage · #45474B grafite
+
+     Duas decisões que a paleta obrigou:
+     1) O amarelo tem 1,49:1 de contraste sobre o fundo claro — não serve
+        para texto nem para preenchimento de gráfico. Fica como realce
+        (botão +, destaques), sempre com texto grafite por cima.
+     2) O sage tem croma 0,028 (lê-se cinzento) — também não serve como
+        cor de série. As séries do gráfico são passos validados das mesmas
+        famílias: verde profundo e ocre escuro.
+     --------------------------------------------------------------- */
   :root{
-    --bg:#F4F5F7; --surface:#FFFFFF; --surface2:#EDEFF2; --ink:#1A2332; --muted:#5C6675;
-    --line:#DDE1E7; --grid:#E7EAEF;
-    --accent:#1E4E9C; --accent-ink:#FFFFFF; --accent-soft:#E3EAF7;
-    --reemb:#A05E12; --reemb-soft:#F5E9D8;
-    --s-cartao:#1E4E9C; --s-reemb:#A05E12;
-    --ok:#1F7A4D; --ok-soft:#E2F0E8; --warn:#8A5A00; --warn-soft:#FBF0D8; --danger:#B3362B;
-    --shadow:0 10px 30px rgba(26,35,50,.12); --shadow-sm:0 2px 8px rgba(26,35,50,.08);
-    --backdrop:rgba(20,26,38,.45);
+    --bg:#F5F7F8; --surface:#FFFFFF; --surface2:#EAEDEE; --ink:#45474B; --muted:#6B7075;
+    --line:#DFE3E5; --grid:#E9ECED;
+    --accent:#495E57; --accent-ink:#FFFFFF; --accent-soft:#E6EBE9;
+    --highlight:#F4CE14; --highlight-ink:#3A3C40;
+    /* preenchimento de gráfico (basta 3:1) e texto (precisa de 4.5:1)
+       têm exigências diferentes — daí dois tokens por família */
+    --s-cartao:#0F7A5A; --s-reemb:#A8821A;
+    --cartao-soft:#E3F0EA; --cartao-ink:#0C6B4E;
+    --reemb-soft:#F7EFD8; --reemb-ink:#7E6110;
+    --ok:#495E57; --ok-soft:#E6EBE9;
+    --warn:#B4531A; --warn-soft:#FAEBE0; --warn-ink:#A34613; --danger:#B3362B;
+    --shadow:0 10px 30px rgba(69,71,75,.13); --shadow-sm:0 2px 8px rgba(69,71,75,.08);
+    --backdrop:rgba(58,60,64,.45);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#12151B; --surface:#1B2029; --surface2:#242B37; --ink:#E8EBF0; --muted:#9AA4B2;
-      --line:#303845; --grid:#2A323E;
-      --accent:#7FA6E8; --accent-ink:#0E1B33; --accent-soft:#22314D;
-      --reemb:#E0A45C; --reemb-soft:#3A2E1C;
-      --s-cartao:#4F82D6; --s-reemb:#C08236;
-      --ok:#5BBF8F; --ok-soft:#1B3328; --warn:#E0B15C; --warn-soft:#33291A; --danger:#E07A6E;
+      --bg:#1B1D20; --surface:#25272B; --surface2:#31343A; --ink:#EDEFF0; --muted:#A0A5A9;
+      --line:#3B3E44; --grid:#33363B;
+      --accent:#9CBBB0; --accent-ink:#1B1D20; --accent-soft:#2C3A35;
+      --highlight:#F4CE14; --highlight-ink:#2A2C30;
+      --s-cartao:#2FA37F; --s-reemb:#B08A2A;
+      --cartao-soft:#1B322A; --cartao-ink:#4FC49B;
+      --reemb-soft:#332B18; --reemb-ink:#D2A64A;
+      --ok:#9CBBB0; --ok-soft:#2C3A35;
+      --warn:#E08B52; --warn-soft:#3A2A1E; --warn-ink:#E8996A; --danger:#E07A6E;
       --shadow:0 10px 30px rgba(0,0,0,.45); --shadow-sm:0 2px 8px rgba(0,0,0,.35);
-      --backdrop:rgba(4,6,10,.6);
+      --backdrop:rgba(8,9,10,.6);
     }
   }
   *{box-sizing:border-box; margin:0}
@@ -74,7 +93,7 @@
   .brand{font-size:20px; font-weight:700; letter-spacing:-.02em; font-family:"Bricolage Grotesque", sans-serif}
   .tbtns{display:flex; gap:6px}
   .ibtn{width:40px; height:40px; border-radius:12px; border:1px solid var(--line);
-        background:var(--surface); color:var(--muted); font-size:16px; cursor:pointer; line-height:1}
+        background:var(--surface); color:var(--accent); font-size:16px; cursor:pointer; line-height:1}
   .ibtn.spin{animation:rot 1s linear infinite}
   @keyframes rot{to{transform:rotate(360deg)}}
 
@@ -168,7 +187,7 @@
   .row .amt{font-size:15.5px; font-weight:600; white-space:nowrap}
   .chip{display:inline-block; font-size:11px; font-weight:600; color:var(--muted);
         background:var(--surface2); border-radius:99px; padding:1px 8px; margin-left:6px}
-  .chip.pend{color:var(--warn); background:var(--warn-soft); font-weight:700}
+  .chip.pend{color:var(--warn-ink); background:var(--warn-soft); font-weight:700}
   .chip.toc{color:var(--ok); background:var(--ok-soft); font-weight:700}
   .empty{color:var(--muted); font-size:14px; text-align:center; padding:26px 12px;
          border:1px dashed var(--line); border-radius:16px}
@@ -208,7 +227,7 @@
                   font-size:13px; font-weight:600; border-radius:10px; padding:9px 13px;
                   cursor:pointer; flex:none; min-height:38px}
   .dupgroup{background:var(--warn-soft); border-radius:12px; padding:8px 12px; margin-bottom:8px;
-            font-size:12.5px; font-weight:600; color:var(--warn)}
+            font-size:12.5px; font-weight:600; color:var(--warn-ink)}
   .mesbtn{border:1px solid var(--accent); background:none; color:var(--accent); font:inherit;
           font-size:12px; font-weight:600; border-radius:99px; padding:5px 11px; cursor:pointer;
           flex:none; min-height:32px}
@@ -219,14 +238,16 @@
           padding:6px 26px calc(8px + env(safe-area-inset-bottom))}
   .tab{position:relative; background:none; border:none; color:var(--muted); font:inherit; font-size:12px;
        font-weight:600; display:flex; flex-direction:column; align-items:center; gap:2px;
-       cursor:pointer; padding:6px 10px}
+       cursor:pointer; padding:6px 14px; border-radius:13px; justify-self:center}
   .tab .ico{font-size:19px; line-height:1}
-  .tab[aria-current="true"]{color:var(--accent)}
-  .tab .badge-n{position:absolute; top:0; right:2px; min-width:17px; height:17px; border-radius:99px;
+  /* o sage é calmo por natureza: o separador ativo precisa de fundo, não só de cor */
+  .tab[aria-current="true"]{color:var(--accent); background:var(--accent-soft)}
+  .tab .badge-n{position:absolute; top:-1px; right:6px; min-width:17px; height:17px; border-radius:99px;
        background:var(--warn); color:var(--bg); font-size:10.5px; font-weight:700; line-height:17px;
        padding:0 4px}
-  .newbtn{width:54px; height:54px; border-radius:50%; border:none; background:var(--accent);
-          color:var(--accent-ink); font-size:26px; line-height:1; cursor:pointer;
+  /* o único momento amarelo da interface: a ação principal */
+  .newbtn{width:54px; height:54px; border-radius:50%; border:none; background:var(--highlight);
+          color:var(--highlight-ink); font-size:26px; font-weight:600; line-height:1; cursor:pointer;
           box-shadow:var(--shadow-sm); transform:translateY(-10px)}
   .newbtn:active{transform:translateY(-8px)}
 
@@ -248,8 +269,8 @@
 
   .badge{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
          border-radius:99px; padding:4px 12px}
-  .badge.cartao{background:var(--accent-soft); color:var(--accent)}
-  .badge.reembolso{background:var(--reemb-soft); color:var(--reemb)}
+  .badge.cartao{background:var(--cartao-soft); color:var(--cartao-ink)}
+  .badge.reembolso{background:var(--reemb-soft); color:var(--reemb-ink)}
   .cfhead{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:4px}
   .field{margin-bottom:13px}
   .field label{display:block; font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
@@ -263,7 +284,7 @@
                color:var(--muted); pointer-events:none}
   .frow{display:grid; grid-template-columns:1fr 1fr; gap:12px}
   .status{font-size:12.5px; font-weight:600; margin-top:6px; min-height:18px}
-  .status.ok{color:var(--ok)} .status.bad{color:var(--danger)} .status.warn{color:var(--warn)}
+  .status.ok{color:var(--ok)} .status.bad{color:var(--danger)} .status.warn{color:var(--warn-ink)}
   .filecard{display:flex; gap:10px; align-items:flex-start; background:var(--surface2); border-radius:12px;
             padding:10px 12px; margin:2px 0 14px}
   .filecard .fico{font-size:19px; line-height:1.3}
