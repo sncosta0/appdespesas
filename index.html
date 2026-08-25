@@ -2099,7 +2099,7 @@ async function carregaXLSX(){
   if (!XLSXmod) XLSXmod = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.mjs");
   return XLSXmod;
 }
-async function buildXLSX(lista, tipoSaida){
+async function buildXLSX(lista, tipoSaida, nomes){
   const X = await carregaXLSX();
   const cab = ["Tipo","Pago por","Data","Fornecedor","NIF emitente","NIF empresa",
                "Total","IVA","Categoria","Ficheiro","Confirmada","Entregue em"];
@@ -2108,7 +2108,8 @@ async function buildXLSX(lista, tipoSaida){
     .map(r => [tipoLabel(r.tipo), r.pago_por || "", r.data || "", r.fornecedor || "",
       r.nif || "", r.nif_cliente || "",
       r.total == null ? null : num(r.total), r.iva == null ? null : num(r.iva),
-      r.categoria || "", r.ficheiro || "", r.confirmada ? "sim" : "não", r.entregue_em || ""]);
+      r.categoria || "", (nomes && nomes.get(r.id)) || r.ficheiro || "",
+      r.confirmada ? "sim" : "não", r.entregue_em || ""]);
   const ws = X.utils.aoa_to_sheet([cab, ...linhas]);
   ws["!cols"] = [{wch:14},{wch:10},{wch:11},{wch:30},{wch:12},{wch:12},
                  {wch:10},{wch:9},{wch:13},{wch:36},{wch:11},{wch:11}];
@@ -2128,14 +2129,28 @@ function pastaEntrega(lista){
   }
   return "Entrega " + new Date().toISOString().slice(0, 10);
 }
+// nome de destino único e legível: os scans chamam-se todos «Fatura <data>.pdf»,
+// e duas faturas do mesmo dia (cartão + reembolso) colidiam ao juntar tudo numa pasta
+function nomeEntrega(r, usados){
+  let base = (r.data || "sem-data") + " " +
+    (r.fornecedor || "fatura").replace(/[\\/:*?"<>|]/g, "-").trim();
+  if (r.total != null) base += " " + num(r.total).toFixed(2).replace(".", ",") + "€";
+  let nome = base + ".pdf", n = 2;
+  while (usados.has(nome)) nome = base + " (" + (n++) + ").pdf";
+  usados.add(nome);
+  return nome;
+}
 async function preparaEntrega(lista){
+  const usados = new Set();
+  const itens = lista.filter(r => r.ficheiro)
+    .map(r => ({ id: r.id, de: caminhoICloud(r), para: nomeEntrega(r, usados) }));
   let xlsx;
-  try { xlsx = await buildXLSX(lista, "base64"); }
+  try { xlsx = await buildXLSX(lista, "base64", new Map(itens.map(x => [x.id, x.para]))); }
   catch { toastMsg("Não deu para gerar o Excel — verifica a ligação."); return; }
   const manifesto = {
     pasta: pastaEntrega(lista),
     xlsx,
-    ficheiros: lista.filter(r => r.ficheiro).map(caminhoICloud)
+    ficheiros: itens.map(({ de, para }) => ({ de, para }))
   };
   try { await navigator.clipboard.writeText(JSON.stringify(manifesto)); }
   catch { toastMsg("Não deu para passar a lista ao atalho — tenta outra vez."); return; }
