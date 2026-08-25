@@ -81,3 +81,18 @@ $$;
 revoke execute on function public.registar_fatura from public;
 grant execute on function public.registar_fatura(text,text,text,text,text,text,text,text,text,text)
   to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Triagem de duplicados partilhada (migração 005)
+-- Pares (data|total) marcados como «são diferentes» na vista de duplicados.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.duplicados_ignorados (
+  chave     text primary key,
+  criada_em timestamptz not null default now()
+);
+
+alter table public.duplicados_ignorados enable row level security;
+
+create policy "autenticados tudo" on public.duplicados_ignorados
+  for all to authenticated using (true) with check (true);

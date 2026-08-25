@@ -1005,9 +1005,26 @@ const icoTipo = (r) => !r.confirmada
     ? `<span class="l-ico cartao-i"><svg width="16" height="16"><use href="#i-cartao"></use></svg></span>`
     : `<span class="l-ico reemb-i"><svg width="16" height="16"><use href="#i-nota"></use></svg></span>`;
 
-// pares de duplicados marcados como «são diferentes» — memória local do dispositivo
-const dupIgnorados = () => { try { return new Set(JSON.parse(localStorage.getItem("ad-dup-ok") || "[]")); } catch { return new Set(); } };
-const guardaDupIgnorados = (s) => { try { localStorage.setItem("ad-dup-ok", JSON.stringify([...s])); } catch {} };
+// pares de duplicados marcados como «são diferentes» — na base de dados,
+// partilhados entre os dois iPhones (migração 005)
+let dupIgn = new Set();
+const dupIgnorados = () => dupIgn;
+async function carregaDupIgnorados(){
+  // migra a triagem antiga que vivia só neste dispositivo (v2.0 usava localStorage)
+  try {
+    const locais = JSON.parse(localStorage.getItem("ad-dup-ok") || "[]");
+    if (locais.length){
+      const { error } = await sb.from("duplicados_ignorados")
+        .upsert(locais.map(chave => ({ chave })));
+      if (!error) localStorage.removeItem("ad-dup-ok");
+    }
+  } catch {}
+  const { data, error } = await sb.from("duplicados_ignorados").select("chave");
+  if (!error){
+    dupIgn = new Set((data || []).map(r => r.chave));
+    try { localStorage.setItem("ad-dup-cache", JSON.stringify([...dupIgn])); } catch {}
+  }
+}
 
 let toastTimer;
 function toastMsg(msg){
@@ -1036,6 +1053,7 @@ async function showApp(){
   $("sEmail").textContent = user?.email || "";
   $("sVersion").textContent = "AppDespesas " + VERSION;
   montaGrelhas();
+  try { dupIgn = new Set(JSON.parse(localStorage.getItem("ad-dup-cache") || "[]")); } catch {}
   try {
     const cache = JSON.parse(localStorage.getItem("ad-cache") || "null");
     if (Array.isArray(cache) && cache.length){ all = cache; carregado = true; renderAll(); }
@@ -1097,6 +1115,7 @@ async function refresh(){
   const { data, error } = await sb.from("despesas").select("*")
     .order("data", { ascending:false, nullsFirst:false })
     .order("criada_em", { ascending:false });
+  await carregaDupIgnorados();
   $("btnRefresh").classList.remove("gira");
   if (error){
     toastMsg(all.length ? "Sem ligação — a mostrar dados guardados" : "Sem ligação: " + error.message);
@@ -1611,10 +1630,14 @@ function renderDuplicados(l){
   }).join("");
   html += renderDupResolvidos();
   $("listBody").innerHTML = html || '<div class="vazio"><b>Sem possíveis duplicados</b></div>';
-  $("listBody").querySelectorAll(".dup-dif").forEach(b => b.addEventListener("click", (ev) => {
+  $("listBody").querySelectorAll(".dup-dif").forEach(b => b.addEventListener("click", async (ev) => {
     ev.stopPropagation();
-    const s = dupIgnorados(); s.add(b.dataset.k); guardaDupIgnorados(s);
-    renderAll(); toastMsg("Par marcado como diferente");
+    const chave = b.dataset.k;
+    const { error } = await sb.from("duplicados_ignorados").upsert({ chave });
+    if (error){ toastMsg("Erro a guardar: " + error.message); return; }
+    dupIgn.add(chave);
+    try { localStorage.setItem("ad-dup-cache", JSON.stringify([...dupIgn])); } catch {}
+    renderAll(); toastMsg("Par marcado como diferente — nos dois iPhones");
   }));
   $("listBody").querySelectorAll(".dup-del").forEach(b => b.addEventListener("click", (ev) => {
     ev.stopPropagation();
@@ -1634,10 +1657,13 @@ function renderDupResolvidos(){
       <button data-repor="${esc(k)}">Repor</button></div>`;
   }).join("");
 }
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
   const rep = e.target.closest("[data-repor]");
   if (rep){
-    const s = dupIgnorados(); s.delete(rep.dataset.repor); guardaDupIgnorados(s);
+    const { error } = await sb.from("duplicados_ignorados").delete().eq("chave", rep.dataset.repor);
+    if (error){ toastMsg("Erro: " + error.message); return; }
+    dupIgn.delete(rep.dataset.repor);
+    try { localStorage.setItem("ad-dup-cache", JSON.stringify([...dupIgn])); } catch {}
     renderAll();
   }
 });
