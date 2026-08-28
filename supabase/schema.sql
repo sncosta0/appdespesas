@@ -96,3 +96,10 @@ alter table public.duplicados_ignorados enable row level security;
 
 create policy "autenticados tudo" on public.duplicados_ignorados
   for all to authenticated using (true) with check (true);
+
+-- ---------------------------------------------------------------------------
+-- Aceitar faturas sem o NIF da empresa (migração 006)
+-- true = estrangeira/simplificada aceite; sai do aviso e do filtro «Sem NIF».
+-- ---------------------------------------------------------------------------
+
+alter table public.despesas add column if not exists nif_aceite boolean not null default false;

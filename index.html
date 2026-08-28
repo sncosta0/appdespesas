@@ -404,6 +404,11 @@
   .estado-fx.ok b{color:var(--ok)} .estado-fx.ok small{color:var(--hero-label)}
   .estado-fx.aviso b{color:var(--pend-ink)} .estado-fx.aviso small{color:var(--pend-sub)}
   .estado-fx.erro b{color:var(--danger-ink)} .estado-fx.erro small{color:var(--danger)}
+  .efx-btn{display:flex; align-items:center; min-height:40px; padding:0 14px; border-radius:12px;
+           background:var(--surface); font-size:12.5px; font-weight:700; flex:none;
+           box-shadow:var(--sombra-s)}
+  .estado-fx.aviso .efx-btn{color:var(--pend-ink)}
+  .estado-fx.ok .efx-btn{color:var(--ok)}
 
   .nota-mem{display:flex; align-items:flex-start; gap:10px; background:var(--accent-soft);
             border-radius:14px; padding:11px 14px; margin-bottom:10px;
@@ -824,6 +829,11 @@
       <div class="det-valor"><b class="num" id="dTotal"></b><small id="dIva"></small></div>
     </div>
     <div class="det-chips" id="dChips"></div>
+    <div class="estado-fx" id="dNifAviso" hidden style="align-items:center">
+      <span class="efi" id="dNifAvisoIco"></span>
+      <div style="flex:1"><b id="dNifAvisoT"></b><small id="dNifAvisoS"></small></div>
+      <button class="efx-btn" id="dNifBtn"></button>
+    </div>
     <div class="factos" id="dFactos"></div>
     <div class="fich-cartao" id="dFichCard">
       <span class="fc-ico"><svg width="17" height="17"><use href="#i-fich"></use></svg></span>
@@ -1235,7 +1245,7 @@ function gruposDuplicados(incluirIgnorados){
 function listaFiltrada(){
   let l = estado === "pendentes" ? pendentes() : confirmadas();
   if (filtro === "cartao" || filtro === "reembolso") l = l.filter(r => r.tipo === filtro);
-  if (estado === "semnif") l = l.filter(r => r.nif_cliente !== NIF_EMPRESA);
+  if (estado === "semnif") l = l.filter(r => r.nif_cliente !== NIF_EMPRESA && !r.nif_aceite);
   if (estado === "porentregar") l = l.filter(r => !r.entregue_em);
   if (estado === "entregues") l = l.filter(r => !!r.entregue_em);
   if (estado === "duplicados"){
@@ -1396,7 +1406,7 @@ function renderRevisao(conf){
   const np = pendentes();
   if (np.length) itens.push({ ico:"i-alerta", cls:"background:var(--highlight); color:var(--highlight-ink)",
     t:`${np.length} por confirmar`, v:eur.format(soma(np)), e:"pendentes" });
-  const semNif = conf.filter(r => r.nif_cliente !== NIF_EMPRESA);
+  const semNif = conf.filter(r => r.nif_cliente !== NIF_EMPRESA && !r.nif_aceite);
   if (semNif.length) itens.push({ ico:"i-fich", cls:"background:var(--warn-soft); color:var(--warn)",
     t:`${semNif.length} sem o NIF da empresa`, v:eur.format(soma(semNif)), e:"semnif" });
   const toc = conf.filter(r => !r.entregue_em);
@@ -2028,6 +2038,39 @@ function abrePdf(r){
       toastMsg("Se nada abriu, falta instalar o atalho «" + SHORTCUT_ABRIR + "»");
   }, 1200);
 }
+// chips + aviso do NIF no detalhe — refeito em cada abertura e no Aceitar/Repor
+function pintaDetalheNif(r){
+  const nifOk = r.nif_cliente === NIF_EMPRESA;
+  $("dChips").innerHTML =
+    (nifOk
+      ? '<span class="det-chip ok"><svg width="13" height="13"><use href="#i-ok"></use></svg>NIF ok</span>'
+      : r.nif_aceite
+      ? '<span class="det-chip neutro"><svg width="13" height="13"><use href="#i-ok"></use></svg>sem NIF · aceite</span>'
+      : '<span class="det-chip aviso"><svg width="13" height="13"><use href="#i-x"></use></svg>' +
+        (r.nif_cliente ? "NIF divergente" : "sem NIF") + '</span>') +
+    (r.entregue_em
+      ? '<span class="det-chip ok"><svg width="13" height="13"><use href="#i-ok"></use></svg>entregue</span>'
+      : '<span class="det-chip neutro"><svg width="13" height="13"><use href="#i-fora"></use></svg>por entregar</span>') +
+    `<span class="det-chip neutro">${esc(r.categoria || "—")}</span>`;
+  const aviso = $("dNifAviso");
+  aviso.hidden = nifOk;
+  if (!nifOk){
+    aviso.className = "estado-fx " + (r.nif_aceite ? "ok" : "aviso");
+    aviso.style.alignItems = "center";
+    $("dNifAvisoIco").style.cssText = r.nif_aceite
+      ? "background:var(--ok-forte)" : "background:var(--highlight)";
+    $("dNifAvisoIco").innerHTML = r.nif_aceite
+      ? '<svg width="14" height="14" style="color:#FFFFFF"><use href="#i-ok"></use></svg>'
+      : '<svg width="14" height="14" style="color:var(--highlight-ink)"><use href="#i-alerta"></use></svg>';
+    $("dNifAvisoT").textContent = r.nif_aceite
+      ? "Aceite sem o NIF da empresa"
+      : (r.nif_cliente ? "NIF diferente do da empresa" : "Sem o NIF da empresa");
+    $("dNifAvisoS").textContent = r.nif_aceite
+      ? "já não conta nos avisos — nos dois iPhones"
+      : "estrangeira ou sem NIF? podes aceitá-la assim";
+    $("dNifBtn").textContent = r.nif_aceite ? "Repor" : "Aceitar";
+  }
+}
 function abreDetalhe(r){
   $("dIco").className = "l-ico " + (r.tipo === "cartao" ? "cartao-i" : "reemb-i");
   $("dIco").style.cssText = "width:44px; height:44px; border-radius:14px";
@@ -2037,17 +2080,9 @@ function abreDetalhe(r){
   $("dTotal").textContent = r.total == null ? "—" : eur.format(num(r.total));
   $("dIva").textContent = r.iva == null ? "" : "IVA " + eur.format(num(r.iva)).replace("€","").trim();
 
-  const nifOk = r.nif_cliente === NIF_EMPRESA;
-  $("dChips").innerHTML =
-    (nifOk
-      ? '<span class="det-chip ok"><svg width="13" height="13"><use href="#i-ok"></use></svg>NIF ok</span>'
-      : '<span class="det-chip aviso"><svg width="13" height="13"><use href="#i-x"></use></svg>' +
-        (r.nif_cliente ? "NIF divergente" : "sem NIF") + '</span>') +
-    (r.entregue_em
-      ? '<span class="det-chip ok"><svg width="13" height="13"><use href="#i-ok"></use></svg>entregue</span>'
-      : '<span class="det-chip neutro"><svg width="13" height="13"><use href="#i-fora"></use></svg>por entregar</span>') +
-    `<span class="det-chip neutro">${esc(r.categoria || "—")}</span>`;
+  pintaDetalheNif(r);
 
+  const nifOk = r.nif_cliente === NIF_EMPRESA;
   $("dFactos").innerHTML =
     `<div class="facto"><label>NIF emitente</label><span class="num">${esc(r.nif || "—")}</span></div>
      <div class="facto"><label>NIF da empresa</label>
@@ -2059,7 +2094,7 @@ function abreDetalhe(r){
   $("dFichCard").hidden = !r.ficheiro;
   $("dFile").textContent = nameOf(r) || "—";
   $("dPath").textContent = pathOf(r);
-  ["dEdit","dDelete","dOpen","dCopy","dToc"].forEach(id => $(id).dataset.id = r.id);
+  ["dEdit","dDelete","dOpen","dCopy","dToc","dNifBtn"].forEach(id => $(id).dataset.id = r.id);
   $("dTocTxt").textContent = r.entregue_em ? "Desmarcar entrega" : "Entregar ao TOC";
   openSheet("sheetDetail");
 }
@@ -2096,6 +2131,16 @@ $("dToc").addEventListener("click", async function(){
   r.entregue_em = valor;
   closeSheets(); renderAll();
   toastMsg(valor ? "Marcada como entregue" : "Marcada como não entregue");
+});
+$("dNifBtn").addEventListener("click", async function(){
+  const r = all.find(x => x.id === this.dataset.id);
+  if (!r) return;
+  const novo = !r.nif_aceite;
+  const { error } = await sb.from("despesas").update({ nif_aceite: novo }).eq("id", r.id);
+  if (error){ toastMsg("Erro: " + error.message); return; }
+  r.nif_aceite = novo;
+  pintaDetalheNif(r); renderAll();
+  toastMsg(novo ? "Aceite sem NIF — sai dos avisos nos dois iPhones" : "Volta a contar nos avisos");
 });
 $("dDelete").addEventListener("click", function(){
   pendingDel = all.find(x => x.id === this.dataset.id);
